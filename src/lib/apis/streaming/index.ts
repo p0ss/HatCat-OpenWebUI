@@ -10,6 +10,13 @@ type TextStreamUpdate = {
 	selectedModelId?: any;
 	error?: any;
 	usage?: ResponseUsage;
+	// HatCat: metadata for token-level visualization
+	metadata?: {
+		divergence?: any;
+		color?: string;
+		palette?: string[];
+		steering?: any;
+	};
 };
 
 type ResponseUsage = {
@@ -82,9 +89,29 @@ async function* openAIStreamToIterator(
 				continue;
 			}
 
+			// Extract content and metadata from delta (HatCat support)
+			const delta = parsedData.choices?.[0]?.delta;
+			const content = delta?.content ?? '';
+			let metadata = delta?.metadata;
+
+			// Sanitize metadata to prevent injection attacks
+			if (metadata) {
+				// Validate color is a valid hex color
+				if (metadata.color && !/^#[0-9A-Fa-f]{6}$/.test(metadata.color)) {
+					metadata.color = '#808080'; // Fallback to gray
+				}
+				// Validate palette colors
+				if (metadata.palette && Array.isArray(metadata.palette)) {
+					metadata.palette = metadata.palette
+						.filter((c: string) => /^#[0-9A-Fa-f]{6}$/.test(c))
+						.slice(0, 10); // Limit to 10 colors max
+				}
+			}
+
 			yield {
 				done: false,
-				value: parsedData.choices?.[0]?.delta?.content ?? ''
+				value: content,
+				...(metadata && { metadata })
 			};
 		} catch (e) {
 			console.error('Error extracting delta from SSE event:', e);
@@ -116,6 +143,10 @@ async function* streamLargeDeltasAsRandomChunks(
 			continue;
 		}
 		if (textStreamUpdate.usage) {
+			yield textStreamUpdate;
+			continue;
+		}
+		if (textStreamUpdate.metadata) {
 			yield textStreamUpdate;
 			continue;
 		}

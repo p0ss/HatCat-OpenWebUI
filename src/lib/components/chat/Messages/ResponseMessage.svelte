@@ -112,6 +112,16 @@
 			usage?: unknown;
 		};
 		annotation?: { type: string; rating: number };
+		// HatCat: Token-level metadata for divergence visualization
+		tokenMetadata?: Array<{
+			token: string;
+			metadata?: {
+				divergence?: any;
+				color?: string;
+				palette?: string[];
+				steering?: any;
+			};
+		}>;
 	}
 
 	export let chatId = '';
