@@ -2221,8 +2221,12 @@
 			if (res && res.ok && res.body && generating) {
 				generationController = controller;
 				const textStream = await createOpenAITextStream(res.body, $settings.splitLargeChunks);
+				// HatCat: Initialize token metadata array
+				if (!mergedResponse.tokenMetadata) {
+					mergedResponse.tokenMetadata = [];
+				}
 				for await (const update of textStream) {
-					const { value, done, sources, error, usage } = update;
+					const { value, done, sources, error, usage, metadata } = update;
 					if (error || done) {
 						generating = false;
 						generationController = null;
@@ -2233,6 +2237,10 @@
 						continue;
 					} else {
 						mergedResponse.content += value;
+						// HatCat: Store token metadata if present
+						if (value && metadata) {
+							mergedResponse.tokenMetadata.push({ token: value, metadata });
+						}
 						history.messages[messageId] = message;
 					}
 
