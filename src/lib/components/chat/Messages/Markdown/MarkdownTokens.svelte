@@ -26,6 +26,7 @@
 
 	export let id: string;
 	export let tokens: Token[];
+	export let tokenMetadata = undefined;
 	export let top = true;
 	export let attributes = {};
 

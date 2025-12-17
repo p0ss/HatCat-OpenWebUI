@@ -44,6 +44,7 @@
 		pinnedChats,
 		showEmbeds
 	} from '$lib/stores';
+	import { steeringStore } from '$lib/stores/steering';
 
 	import {
 		convertMessagesToHistory,
@@ -1402,7 +1403,75 @@
 	};
 
 	const chatCompletionEventHandler = async (data, message, chatId) => {
-		const { id, done, choices, content, sources, selected_model_id, error, usage } = data;
+		const { id, done, choices, content, sources, selected_model_id, error, usage, model } = data;
+
+		// HatCat: Debug all incoming data
+		console.log('HatCat: chatCompletionEventHandler data:', { model, done, hasChoices: !!choices, content });
+
+		// HatCat: Check if this is an analysis message by model field or content pattern
+		const isAnalysisMessage = model === 'hatcat-analyzer' ||
+		                         model === 'hatcat-divergence' ||
+		                         (choices?.[0]?.delta?.role === 'assistant' &&
+		                          choices?.[0]?.delta?.content?.includes('% divergence'));
+
+		// HatCat: Handle analysis messages as separate message bubble
+		if (isAnalysisMessage && choices?.[0]?.delta?.content?.includes('% divergence')) {
+			console.log('HatCat: Received analysis message:', data);
+			console.log('HatCat: message object:', message);
+			console.log('HatCat: message.id:', message.id);
+
+			// Check if we already have an analysis message for this response
+			let analysisMessageId = `${message.id}-analysis`;
+			console.log('HatCat: analysisMessageId:', analysisMessageId);
+			let analysisMessage = history.messages[analysisMessageId];
+			console.log('HatCat: existing analysisMessage:', analysisMessage);
+
+			if (!analysisMessage) {
+				// Create a new analysis message as a child of the assistant message
+				analysisMessage = {
+					id: analysisMessageId,
+					parentId: message.id,  // Parent is the assistant message, not the user message
+					childrenIds: [],
+					role: 'assistant',
+					content: '',
+					model: 'hatcat-analyzer',
+					modelName: 'HatCat Analysis',
+					isAnalysis: true, // Flag to style differently
+					timestamp: Math.floor(Date.now() / 1000)
+				};
+
+				// Add to history
+				history.messages[analysisMessageId] = analysisMessage;
+
+				// Add as child of the assistant message
+				message.childrenIds = [...message.childrenIds, analysisMessageId];
+
+				// Set as current ID so it's rendered
+				history.currentId = analysisMessageId;
+
+				// Trigger Svelte reactivity
+				history = history;
+			}
+
+			// Accumulate content from choices/delta
+			if (choices && choices[0]?.delta?.content) {
+				analysisMessage.content += choices[0].delta.content;
+				console.log('HatCat: Updated analysis content:', analysisMessage.content);
+			}
+
+			// Mark as done
+			if (done || choices[0]?.finish_reason === 'stop') {
+				analysisMessage.done = true;
+				console.log('HatCat: Analysis message marked as done');
+			}
+
+			// Trigger Svelte reactivity on content update
+			history = history;
+			console.log('HatCat: Analysis message in history:', history.messages[analysisMessageId]);
+			console.log('HatCat: Parent childrenIds:', message.parentId ? history.messages[message.parentId]?.childrenIds : 'no parent');
+
+			return;
+		}
 
 		if (error) {
 			await handleOpenAIError(error, message);
@@ -1419,10 +1488,31 @@
 			} else {
 				// Stream response
 				let value = choices[0]?.delta?.content ?? '';
+				let metadata = choices[0]?.delta?.metadata;
+
+				// HatCat: Debug logging
+				if (choices[0]?.delta) {
+					console.log('HatCat: Delta object:', choices[0].delta);
+					if (metadata) {
+						console.log('HatCat: Found metadata:', metadata);
+					}
+				}
+
+				// HatCat: Initialize tokenMetadata array
+				if (!message.tokenMetadata) {
+					message.tokenMetadata = [];
+				}
+
 				if (message.content == '' && value == '\n') {
 					console.log('Empty response');
 				} else {
 					message.content += value;
+
+					// HatCat: Store token metadata if present
+					if (value && metadata) {
+						console.log('HatCat: Storing token with metadata:', {token: value, metadata});
+						message.tokenMetadata.push({ token: value, metadata });
+					}
 
 					if (navigator.vibrate && ($settings?.hapticFeedback ?? false)) {
 						navigator.vibrate(5);
@@ -1934,6 +2024,14 @@
 			}
 		}
 
+		// Get active steering concepts from store
+		const activeSteerings = get(steeringStore);
+
+		// Log steering data for debugging
+		if (activeSteerings.length > 0) {
+			console.log('HatCat: Sending steering data with request:', activeSteerings);
+		}
+
 		const res = await generateOpenAIChatCompletion(
 			localStorage.token,
 			{
@@ -1988,6 +2086,19 @@
 							stream_options: {
 								include_usage: true
 							}
+						}
+					: {}),
+
+				// Add steering data if there are active steering concepts
+				...(activeSteerings.length > 0
+					? {
+							steering: activeSteerings.map(s => ({
+								concept: s.concept,
+								strength: s.strength,
+								layer: s.layer,
+								mode: s.mode || 'contrastive',
+								target: s.target
+							}))
 						}
 					: {})
 			},

@@ -2468,6 +2468,8 @@ async def process_chat_response(
                                     )
                                 else:
                                     choices = data.get("choices", [])
+                                    # HatCat: Store original chunk data to preserve metadata
+                                    original_chunk_data = data
 
                                     # 17421
                                     usage = data.get("usage", {}) or {}
@@ -2587,7 +2589,9 @@ async def process_chat_response(
                                         data = {
                                             "content": serialize_content_blocks(
                                                 content_blocks
-                                            )
+                                            ),
+                                            # HatCat: Preserve original choices with metadata
+                                            "choices": original_chunk_data.get("choices", [])
                                         }
 
                                     if value:
@@ -2675,6 +2679,8 @@ async def process_chat_response(
                                                 "content": serialize_content_blocks(
                                                     content_blocks
                                                 ),
+                                                # HatCat: Preserve original choices with metadata
+                                                "choices": original_chunk_data.get("choices", [])
                                             }
 
                                 if delta:

@@ -18,6 +18,7 @@
 
 	export let id;
 	export let content;
+	export let tokenMetadata = undefined;
 
 	export let history;
 	export let messageId;
@@ -137,6 +138,7 @@
 	<Markdown
 		{id}
 		{content}
+		{tokenMetadata}
 		{model}
 		{save}
 		{preview}

@@ -951,13 +951,27 @@ async def generate_chat_completion(
         # Check if response is SSE
         if "text/event-stream" in r.headers.get("Content-Type", ""):
             streaming = True
+
+            # HatCat: Log stream chunks to debug metadata passthrough
+            async def debug_stream():
+                try:
+                    chunk_count = 0
+                    async for chunk in r.content:
+                        chunk_count += 1
+                        chunk_str = chunk.decode('utf-8') if isinstance(chunk, bytes) else chunk
+
+                        # Log first few chunks to see structure
+                        if chunk_count <= 3 or 'metadata' in chunk_str:
+                            log.info(f"HatCat: Stream chunk {chunk_count}: {chunk_str[:200]}")
+
+                        yield chunk
+                finally:
+                    await cleanup_response(r, session)
+
             return StreamingResponse(
-                r.content,
+                debug_stream(),
                 status_code=r.status,
                 headers=dict(r.headers),
-                background=BackgroundTask(
-                    cleanup_response, response=r, session=session
-                ),
             )
         else:
             try:

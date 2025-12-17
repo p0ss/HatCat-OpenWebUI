@@ -195,6 +195,21 @@
 		}
 	};
 
+	// HatCat: Export token metadata as JSON
+	const exportTokenMetadata = async () => {
+		const metadata = message.tokenMetadata ?? message.merged?.tokenMetadata;
+		if (!metadata || metadata.length === 0) {
+			toast.error($i18n.t('No token metadata available for this message'));
+			return;
+		}
+
+		const jsonStr = JSON.stringify(metadata, null, 2);
+		const res = await _copyToClipboard(jsonStr);
+		if (res) {
+			toast.success($i18n.t('Token metadata JSON copied to clipboard!'));
+		}
+	};
+
 	const stopAudio = () => {
 		try {
 			speechSynthesis.cancel();
@@ -588,20 +603,29 @@
 		dir={$settings.chatDirection}
 	>
 		<div class={`shrink-0 ltr:mr-3 rtl:ml-3 hidden @lg:flex mt-1 `}>
-			<ProfileImage
-				src={model?.info?.meta?.profile_image_url ??
-					($i18n.language === 'dg-DG'
-						? `${WEBUI_BASE_URL}/doge.png`
-						: `${WEBUI_BASE_URL}/favicon.png`)}
-				className={'size-8 assistant-message-profile-image'}
-			/>
+{#if message.isAnalysis || message.model === 'hatcat-analyzer'}
+				<!-- HatCat Analysis Icon -->
+				<img src="/hatcat_beige_64.png" alt="HatCat Analyzer" class="size-8 rounded-full" />
+			{:else}
+				<ProfileImage
+					src={model?.info?.meta?.profile_image_url ??
+						($i18n.language === 'dg-DG'
+							? `${WEBUI_BASE_URL}/doge.png`
+							: `/hatbot_blue_64.png`)}
+					className={'size-8 assistant-message-profile-image'}
+				/>
+			{/if}
 		</div>
 
 		<div class="flex-auto w-0 pl-1 relative">
 			<Name>
 				<Tooltip content={model?.name ?? message.model} placement="top-start">
-					<span id="response-message-model-name" class="line-clamp-1 text-black dark:text-white">
-						{model?.name ?? message.model}
+					<span
+						id="response-message-model-name"
+						class="line-clamp-1"
+						style="color: {message.isAnalysis || message.model === 'hatcat-analyzer' ? '#f0e6c5' : '#48a4a3'};"
+					>
+						{message.isAnalysis || message.model === 'hatcat-analyzer' ? 'HatCat' : (model?.name ?? message.model)}
 					</span>
 				</Tooltip>
 
@@ -742,6 +766,7 @@
 										{history}
 										{selectedModels}
 										content={message.content}
+										tokenMetadata={message.tokenMetadata ?? message.merged?.tokenMetadata}
 										sources={message.sources}
 										floatingButtons={message?.done &&
 											!readOnly &&
@@ -961,6 +986,35 @@
 										</svg>
 									</button>
 								</Tooltip>
+
+							<!-- HatCat: Export token metadata button -->
+							{#if (message.tokenMetadata ?? message.merged?.tokenMetadata)?.length > 0}
+								<Tooltip content="Export Token Analysis JSON" placement="bottom">
+									<button
+										aria-label="Export Token Analysis JSON"
+										class="{isLastMessage || ($settings?.highContrastMode ?? false)
+											? 'visible'
+											: 'invisible group-hover:visible'} p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg dark:hover:text-white hover:text-black transition"
+										on:click={exportTokenMetadata}
+									>
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											fill="none"
+											aria-hidden="true"
+											viewBox="0 0 24 24"
+											stroke-width="2.3"
+											stroke="currentColor"
+											class="w-4 h-4"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"
+											/>
+										</svg>
+									</button>
+								</Tooltip>
+							{/if}
 
 								{#if $user?.role === 'admin' || ($user?.permissions?.chat?.tts ?? true)}
 									<Tooltip content={$i18n.t('Read Aloud')} placement="bottom">

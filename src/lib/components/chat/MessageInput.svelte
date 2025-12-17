@@ -53,6 +53,7 @@
 	import VoiceRecording from './MessageInput/VoiceRecording.svelte';
 	import FilesOverlay from './MessageInput/FilesOverlay.svelte';
 	import ToolServersModal from './ToolServersModal.svelte';
+	import SteeringPanel from './SteeringPanel.svelte';
 
 	import RichTextInput from '../common/RichTextInput.svelte';
 	import Tooltip from '../common/Tooltip.svelte';
@@ -375,6 +376,35 @@
 
 	let loaded = false;
 	let recording = false;
+	let showSteeringPanel = false;
+	let recentConcepts: string[] = [];
+
+	// Extract concepts from recent analysis messages
+	$: {
+		if (history?.messages) {
+			const concepts = new Set<string>();
+			// Get all messages
+			Object.values(history.messages).forEach((msg: any) => {
+				// Look for HatCat analysis messages
+				if (msg.isAnalysis || msg.model === 'hatcat-analyzer') {
+					// Parse content like "X% divergence - Concept1 (L1)(3) - Concept2 (L0)(2)"
+					const content = msg.content || '';
+					// Split by " - " and extract concept names
+					const parts = content.split(' - ');
+					parts.forEach((part, idx) => {
+						// Skip the first part (divergence percentage)
+						if (idx === 0) return;
+						// Extract concept name before (LX)(Y) pattern
+						const match = part.match(/^(.+?)\s*\(L\d+\)\(\d+\)/);
+						if (match) {
+							concepts.add(match[1].trim());
+						}
+					});
+				}
+			});
+			recentConcepts = Array.from(concepts).slice(0, 20); // Limit to 20 concepts
+		}
+	}
 
 	let isComposing = false;
 	// Safari has a bug where compositionend is not triggered correctly #16615
@@ -1045,12 +1075,21 @@
 						/>
 					</div>
 					<form
-						class="w-full flex flex-col gap-1.5 {recording ? 'hidden' : ''}"
+						class="w-full flex flex-col gap-1.5 relative {recording ? 'hidden' : ''}"
 						on:submit|preventDefault={() => {
 							// check if selectedModels support image input
 							dispatch('submit', prompt);
 						}}
 					>
+						{#if showSteeringPanel}
+							<SteeringPanel
+								{recentConcepts}
+								onClose={() => {
+									showSteeringPanel = false;
+								}}
+							/>
+						{/if}
+
 						<button
 							id="generate-message-pair-button"
 							class="hidden"
@@ -1625,6 +1664,23 @@
 								</div>
 
 								<div class="self-end flex space-x-1 mr-1 shrink-0">
+									<!-- HatCat Steering Button -->
+									<Tooltip content={$i18n.t('Concept Steering')}>
+										<button
+											id="steering-button"
+											class="text-gray-600 dark:text-gray-300 hover:text-gray-700 dark:hover:text-gray-200 transition rounded-full p-1.5 mr-0.5 self-center {showSteeringPanel
+												? 'bg-gray-100 dark:bg-gray-800'
+												: ''}"
+											type="button"
+											on:click={() => {
+												showSteeringPanel = !showSteeringPanel;
+											}}
+											aria-label="Concept Steering"
+										>
+											<img src="/hat_64.png" alt="Steering" class="w-5 h-5" />
+										</button>
+									</Tooltip>
+
 									{#if (!history?.currentId || history.messages[history.currentId]?.done == true) && ($_user?.role === 'admin' || ($_user?.permissions?.chat?.stt ?? true))}
 										<!-- {$i18n.t('Record voice')} -->
 										<Tooltip content={$i18n.t('Dictate')}>

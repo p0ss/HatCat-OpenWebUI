@@ -10,6 +10,10 @@ type TextStreamUpdate = {
 	selectedModelId?: any;
 	error?: any;
 	usage?: ResponseUsage;
+	// HatCat: model field for identifying analyzer messages
+	model?: string;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	choices?: any;
 	// HatCat: metadata for token-level visualization
 	metadata?: {
 		divergence?: any;
@@ -50,9 +54,11 @@ export async function createOpenAITextStream(
 async function* openAIStreamToIterator(
 	reader: ReadableStreamDefaultReader<ParsedEvent>
 ): AsyncGenerator<TextStreamUpdate> {
+	console.log('HatCat: openAIStreamToIterator started');
 	while (true) {
 		const { value, done } = await reader.read();
 		if (done) {
+			console.log('HatCat: Stream done');
 			yield { done: true, value: '' };
 			break;
 		}
@@ -60,6 +66,7 @@ async function* openAIStreamToIterator(
 			continue;
 		}
 		const data = value.data;
+		console.log('HatCat: Received SSE data:', data);
 		if (data.startsWith('[DONE]')) {
 			yield { done: true, value: '' };
 			break;
@@ -67,7 +74,7 @@ async function* openAIStreamToIterator(
 
 		try {
 			const parsedData = JSON.parse(data);
-			console.log(parsedData);
+			console.log('HatCat: Parsed SSE chunk:', parsedData);
 
 			if (parsedData.error) {
 				yield { done: true, value: '', error: parsedData.error };
@@ -76,6 +83,19 @@ async function* openAIStreamToIterator(
 
 			if (parsedData.sources) {
 				yield { done: false, value: '', sources: parsedData.sources };
+				continue;
+			}
+
+			// HatCat: Check if this is from the analyzer model
+			if (parsedData.model === 'hatcat-analyzer') {
+				console.log('HatCat: Detected analyzer model chunk:', parsedData);
+				// Pass the model field through so Chat.svelte can detect it
+				yield {
+					done: parsedData.choices?.[0]?.finish_reason === 'stop',
+					value: parsedData.choices?.[0]?.delta?.content ?? '',
+					model: 'hatcat-analyzer',
+					choices: parsedData.choices
+				};
 				continue;
 			}
 
@@ -147,6 +167,11 @@ async function* streamLargeDeltasAsRandomChunks(
 			continue;
 		}
 		if (textStreamUpdate.metadata) {
+			yield textStreamUpdate;
+			continue;
+		}
+		// HatCat: Pass analyzer messages through immediately
+		if (textStreamUpdate.model) {
 			yield textStreamUpdate;
 			continue;
 		}
