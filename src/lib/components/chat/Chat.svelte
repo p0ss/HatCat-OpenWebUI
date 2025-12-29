@@ -1503,6 +1503,17 @@
 					message.tokenMetadata = [];
 				}
 
+				// HatCat: Initialize sentenceAnnotations array
+				if (!message.sentenceAnnotations) {
+					message.sentenceAnnotations = [];
+				}
+
+				// HatCat: Handle sentence annotations from hatcat-sentence model
+				if (metadata?.sentence_annotation) {
+					console.log('HatCat: Sentence annotation:', metadata.sentence_annotation);
+					message.sentenceAnnotations.push(metadata.sentence_annotation);
+				}
+
 				if (message.content == '' && value == '\n') {
 					console.log('Empty response');
 				} else {

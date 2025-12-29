@@ -19,6 +19,7 @@
 	export let id;
 	export let content;
 	export let tokenMetadata = undefined;
+	export let sentenceAnnotations = undefined;
 
 	export let history;
 	export let messageId;
@@ -139,6 +140,7 @@
 		{id}
 		{content}
 		{tokenMetadata}
+		{sentenceAnnotations}
 		{model}
 		{save}
 		{preview}

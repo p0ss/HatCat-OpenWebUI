@@ -767,6 +767,7 @@
 										{selectedModels}
 										content={message.content}
 										tokenMetadata={message.tokenMetadata ?? message.merged?.tokenMetadata}
+										sentenceAnnotations={message.sentenceAnnotations ?? message.merged?.sentenceAnnotations}
 										sources={message.sources}
 										floatingButtons={message?.done &&
 											!readOnly &&
