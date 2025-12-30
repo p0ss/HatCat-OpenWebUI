@@ -1,6 +1,6 @@
 # HatCat UI
 
-A fork of [Open WebUI](https://github.com/open-webui/open-webui) extended with [HatCatI](https://github.com/p0ss/HatCat) real-time concept interpretability and steering controls.
+A fork of [Open WebUI](https://github.com/open-webui/open-webui) extended with [HatCat](https://github.com/p0ss/HatCat) real-time concept interpretability and steering controls.
 
 <p align="center">
   <img src="styles.png" alt="HatCat UI showing concept detection and steering" width="800"/>
