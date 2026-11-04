@@ -27,6 +27,9 @@ dependencies = [
     "aiofiles",
     "starlette-compress==1.6.0",
     "httpx[socks,http2,zstd,cli,brotli]==0.28.1",
+    # CVE-2026-111497: constrain both HTTPX Brotli implementations.
+    "brotli>=1.2.1; platform_python_implementation == 'CPython'",
+    "brotlicffi>=1.2.1.0; platform_python_implementation != 'CPython'",
     "starsessions[redis]==2.2.1",
 
     "sqlalchemy==2.0.38",
@@ -135,8 +138,8 @@ postgres = [
 
 all = [
     "pymongo",
-    "psycopg2-binary==2.9.9",
-    "pgvector==0.4.0",
+    "psycopg2-binary==2.9.10",
+    "pgvector==0.4.1",
     "moto[s3]>=5.0.26",
     "gcp-storage-emulator>=2024.8.3",
     "docker~=7.1.0",
